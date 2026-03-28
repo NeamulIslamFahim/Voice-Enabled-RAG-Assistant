@@ -13,7 +13,13 @@ def _get_engine():
     except Exception as exc:  # pragma: no cover - depends on local install
         raise RuntimeError("pyttsx3 is not installed. Install `pyttsx3` to enable text-to-speech output.") from exc
 
-    return pyttsx3.init()
+    try:
+        return pyttsx3.init()
+    except Exception as exc:  # pragma: no cover - depends on local install
+        raise RuntimeError(
+            "Text-to-speech could not start. If you're on Linux or WSL, install `espeak` or `espeak-ng`. "
+            "If you're on Windows, make sure a Windows speech voice is available."
+        ) from exc
 
 
 def _voice_cache_path(text: str) -> Path:

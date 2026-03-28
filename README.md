@@ -214,6 +214,18 @@ Try:
 3. Run the install again
 4. Prefer a virtual environment for future installs
 
+### Audio response unavailable or `eSpeak` missing
+
+If the app shows a message like `Audio response unavailable`, the text answer is still generated, but the local text-to-speech backend could not start.
+
+Try this:
+
+- On Linux or WSL, install `espeak` or `espeak-ng`
+- On Windows, make sure a speech voice is installed and available to the system
+- Reinstall `pyttsx3` if the Python package itself is missing
+
+The assistant will continue working even if audio output is unavailable.
+
 ## Dependency List
 
 - `streamlit`
