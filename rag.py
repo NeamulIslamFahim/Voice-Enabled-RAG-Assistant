@@ -176,9 +176,10 @@ def _score_document(question_terms: Counter, content: str) -> float:
 
 
 def _summarize_context(question: str, passages: list[str]) -> str:
+    no_answer = "I don’t know based on provided data"
     question_terms = set(_tokenize(question))
     if not passages:
-        return "I don't know based on the provided data."
+        return no_answer
 
     scored_sentences: list[tuple[float, str]] = []
     for passage in passages:
@@ -206,9 +207,7 @@ def _summarize_context(question: str, passages: list[str]) -> str:
             break
 
     if not selected:
-        fallback = passages[0].strip()
-        fallback = _clean_passage_text(fallback)
-        return f"I found relevant context, but not a strong sentence match. The document says: {fallback[:700]}"
+        return no_answer
 
     if len(selected) == 1:
         return selected[0]
@@ -220,12 +219,13 @@ def _summarize_context(question: str, passages: list[str]) -> str:
 
 
 def ask(question: str, top_k: int = 3) -> tuple[str, list[str]]:
+    no_answer = "I don’t know based on provided data"
     docs = _load_documents()
     question = question.strip()
     if not question:
         return "Please enter a question.", []
     if not docs:
-        return "I don't know based on the provided data.", []
+        return no_answer, []
 
     question_terms = Counter(_tokenize(question))
     ranked: list[tuple[float, dict]] = []
@@ -239,7 +239,7 @@ def ask(question: str, top_k: int = 3) -> tuple[str, list[str]]:
     ranked.sort(key=lambda item: item[0], reverse=True)
     selected = ranked[:top_k]
     if not selected:
-        return "I don't know based on the provided data.", []
+        return no_answer, []
 
     passages = [doc.get("page_content", "") for _, doc in selected]
     answer = _summarize_context(question, passages)
