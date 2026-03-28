@@ -23,6 +23,18 @@ A local Streamlit app that accepts voice input or uploaded audio, transcribes it
 - `faiss_index/` - Bundled document index
 - `requirements.txt` - Python dependencies
 
+## Model Training
+
+The model training was completed in Google Colab, and the training files and artifacts are stored in Google Drive.
+
+- Google Drive folder: https://drive.google.com/drive/folders/1l8hP3l9vRWArtNQZa_k5-ecprx0VAERD?usp=sharing
+
+### Explanation
+
+- Google Colab was used for the training workflow because it provides an easy cloud notebook environment with access to GPUs and a simple way to manage experiment files.
+- The Google Drive folder contains the saved training resources, outputs, and related project materials.
+- This GitHub repository focuses on the voice-enabled RAG assistant application itself, while the training assets are kept in Drive for easier organization and sharing.
+
 ## Requirements
 
 ### Python
@@ -221,4 +233,3 @@ Try:
 ## License
 
 Add your preferred license here if you want to publish or share the project.
-
