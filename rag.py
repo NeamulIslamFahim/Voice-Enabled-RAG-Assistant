@@ -112,6 +112,28 @@ def _sentence_split(text: str) -> list[str]:
     return [chunk.strip() for chunk in chunks if chunk.strip()]
 
 
+def _clean_passage_text(text: str) -> str:
+    if not text:
+        return ""
+
+    cleaned_lines: list[str] = []
+    for line in text.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        if re.search(r"page\s+\d+\s+of\s+\d+", line, flags=re.IGNORECASE):
+            continue
+        if re.fullmatch(r"table of contents.*", line, flags=re.IGNORECASE):
+            continue
+        if line.lower().startswith("retrieval-augmented generation"):
+            continue
+        cleaned_lines.append(line)
+
+    cleaned = " ".join(cleaned_lines)
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()
+    return cleaned
+
+
 def _cosine_similarity(left: Counter, right: Counter) -> float:
     if not left or not right:
         return 0.0
@@ -160,23 +182,41 @@ def _summarize_context(question: str, passages: list[str]) -> str:
 
     scored_sentences: list[tuple[float, str]] = []
     for passage in passages:
+        passage = _clean_passage_text(passage)
         for sentence in _sentence_split(passage):
             tokens = Counter(_tokenize(sentence))
             if not tokens:
+                continue
+            if len(tokens) < 6:
                 continue
             score = _cosine_similarity(Counter(question_terms), tokens)
             if score > 0:
                 scored_sentences.append((score, sentence))
 
     scored_sentences.sort(key=lambda item: item[0], reverse=True)
-    selected = [sentence for _, sentence in scored_sentences[:4]]
+    selected: list[str] = []
+    seen = set()
+    for _, sentence in scored_sentences:
+        normalized = sentence.lower()
+        if normalized in seen:
+            continue
+        seen.add(normalized)
+        selected.append(sentence)
+        if len(selected) == 3:
+            break
 
     if not selected:
         fallback = passages[0].strip()
-        fallback = re.sub(r"\s+", " ", fallback)
-        return f"I found relevant context, but not a strong sentence match. Key passage: {fallback[:700]}"
+        fallback = _clean_passage_text(fallback)
+        return f"I found relevant context, but not a strong sentence match. The document says: {fallback[:700]}"
 
-    return "Here is the best answer I can infer from the document:\n\n" + "\n".join(f"- {sentence}" for sentence in selected)
+    if len(selected) == 1:
+        return selected[0]
+
+    if len(selected) == 2:
+        return f"{selected[0]} {selected[1]}"
+
+    return f"{selected[0]} {selected[1]} {selected[2]}"
 
 
 def ask(question: str, top_k: int = 3) -> tuple[str, list[str]]:
