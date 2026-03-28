@@ -48,23 +48,31 @@ st.set_page_config(
 st.markdown(
     """
     <style>
-        section.main > div > div:last-child {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            z-index: 999;
+        section.main div[data-testid="stVerticalBlock"] > div:has(div[data-testid="stAudioInput"]) {
+            position: fixed !important;
+            bottom: 0 !important;
+            left: 50% !important;
+            transform: translateX(-50%);
+            width: min(740px, calc(100vw - 2rem)) !important;
+            z-index: 999 !important;
             background: var(--background-color);
             border-top: 1px solid rgba(49, 51, 63, 0.12);
             box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.08);
-            padding-top: 1rem;
-            padding-bottom: 0.75rem;
-            padding-left: 1rem;
-            padding-right: 1rem;
+            padding: 1rem 1rem 0.9rem;
+            border-radius: 16px 16px 0 0;
+        }
+
+        section.main div[data-testid="stVerticalBlock"] > div:last-child {
+            position: fixed !important;
+            bottom: 0 !important;
+            left: 50% !important;
+            transform: translateX(-50%);
+            width: min(740px, calc(100vw - 2rem)) !important;
+            z-index: 999 !important;
         }
 
         section.main > div {
-            padding-bottom: 18rem;
+            padding-bottom: 20rem;
         }
     </style>
     """,
