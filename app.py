@@ -151,7 +151,6 @@ for message in current_chat.get("messages", []):
                         st.write(source)
 
 transcript = ""
-should_save_exchange = False
 
 if "last_audio_digest" not in st.session_state:
     st.session_state.last_audio_digest = ""
@@ -184,9 +183,8 @@ with footer:
         audio_digest = hashlib.sha1(audio_bytes).hexdigest() if audio_bytes else ""
 
         st.audio(audio_bytes)
-        st.caption("Voice is ready. Click Transcribe Voice to process it once.")
+        st.caption("Voice is ready. It will be transcribed automatically.")
 
-        should_transcribe = st.button("Transcribe Voice", type="primary")
         cached_transcript = ""
         if audio_digest and st.session_state.last_audio_digest == audio_digest:
             cached_transcript = st.session_state.last_transcript
@@ -196,7 +194,7 @@ with footer:
             st.success("Loaded cached transcription.")
             st.write("Recognized text")
             st.write(transcript)
-        elif should_transcribe and audio_bytes:
+        elif audio_bytes:
             try:
                 selected_language = {
                     "Auto": "auto",
@@ -212,16 +210,44 @@ with footer:
                         language=selected_language,
                     )
 
-                st.session_state.last_audio_digest = audio_digest
-                st.session_state.last_transcript = transcript
-                st.session_state.last_error = ""
-                should_save_exchange = True
-
                 if transcript:
+                    st.session_state.last_audio_digest = audio_digest
+                    st.session_state.last_transcript = transcript
+                    st.session_state.last_error = ""
                     st.success("Audio transcribed successfully.")
                     st.write("Recognized text")
                     st.write(transcript)
+                    with st.spinner("Searching the knowledge base..."):
+                        answer, sources = ask(transcript.strip())
+
+                    if answer not in st.session_state.last_answer_audio:
+                        try:
+                            with st.spinner("Generating audio response..."):
+                                st.session_state.last_answer_audio[answer] = text_to_speech_bytes(answer)
+                        except Exception as exc:
+                            st.session_state.last_answer_audio[answer] = b""
+                            st.caption(f"Audio response unavailable: {exc}")
+
+                    append_exchange(
+                        st.session_state.store,
+                        st.session_state.active_chat_id,
+                        transcript.strip(),
+                        answer,
+                        sources,
+                    )
+                    st.session_state.store = load_store()
+
+                    st.chat_message("assistant").write(answer)
+                    audio_output = st.session_state.last_answer_audio.get(answer, b"")
+                    if audio_output:
+                        st.audio(audio_output, format="audio/wav")
+                    if sources:
+                        with st.expander("Sources", expanded=False):
+                            for source in sources:
+                                st.write(source)
                 else:
+                    st.session_state.last_audio_digest = audio_digest
+                    st.session_state.last_transcript = ""
                     st.warning("The audio file was processed, but no text was returned.")
             except Exception as exc:
                 st.session_state.last_error = str(exc)
@@ -232,33 +258,3 @@ with footer:
             st.caption("Bangla voice input is enabled. Use a Bangla audio file or speech input for best results.")
     else:
         st.info("Record your voice or upload an audio file to begin.")
-
-if transcript.strip() and should_save_exchange:
-    with st.spinner("Searching the knowledge base..."):
-        answer, sources = ask(transcript.strip())
-
-    if answer not in st.session_state.last_answer_audio:
-        try:
-            with st.spinner("Generating audio response..."):
-                st.session_state.last_answer_audio[answer] = text_to_speech_bytes(answer)
-        except Exception as exc:
-            st.session_state.last_answer_audio[answer] = b""
-            st.caption(f"Audio response unavailable: {exc}")
-
-    append_exchange(
-        st.session_state.store,
-        st.session_state.active_chat_id,
-        transcript.strip(),
-        answer,
-        sources,
-    )
-    st.session_state.store = load_store()
-
-    st.chat_message("assistant").write(answer)
-    audio_output = st.session_state.last_answer_audio.get(answer, b"")
-    if audio_output:
-        st.audio(audio_output, format="audio/wav")
-    if sources:
-        with st.expander("Sources", expanded=False):
-            for source in sources:
-                st.write(source)
