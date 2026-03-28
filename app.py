@@ -45,6 +45,32 @@ st.set_page_config(
     layout="centered",
 )
 
+st.markdown(
+    """
+    <style>
+        section.main > div > div:last-child {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            z-index: 999;
+            background: var(--background-color);
+            border-top: 1px solid rgba(49, 51, 63, 0.12);
+            box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.08);
+            padding-top: 1rem;
+            padding-bottom: 0.75rem;
+            padding-left: 1rem;
+            padding-right: 1rem;
+        }
+
+        section.main > div {
+            padding-bottom: 18rem;
+        }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 st.title("Voice Enabled RAG Assistant")
 st.caption("Speak your question or upload a voice file.")
 
@@ -124,14 +150,6 @@ for message in current_chat.get("messages", []):
                     for source in sources:
                         st.write(source)
 
-voice_input = st.audio_input("Record your voice")
-audio_file = st.file_uploader(
-    "Or upload a voice file",
-    type=["wav", "mp3", "m4a", "ogg", "flac"],
-    help="Whisper runs locally. MP3 and M4A inputs require ffmpeg to be installed on your machine.",
-)
-
-source_audio = voice_input if voice_input is not None else audio_file
 transcript = ""
 should_save_exchange = False
 
@@ -144,57 +162,76 @@ if "last_error" not in st.session_state:
 if "last_answer_audio" not in st.session_state:
     st.session_state.last_answer_audio = {}
 
-if source_audio is not None:
-    audio_bytes, audio_name = _audio_payload(source_audio)
-    audio_digest = hashlib.sha1(audio_bytes).hexdigest() if audio_bytes else ""
+footer = st.container()
+with footer:
+    st.divider()
+    st.subheader("Voice Input")
 
-    st.audio(audio_bytes)
-    st.caption("Voice is ready. Click Transcribe Voice to process it once.")
+    voice_col, file_col = st.columns([1, 1])
+    with voice_col:
+        voice_input = st.audio_input("Record your voice")
+    with file_col:
+        audio_file = st.file_uploader(
+            "Or upload a voice file",
+            type=["wav", "mp3", "m4a", "ogg", "flac"],
+            help="Whisper runs locally. MP3 and M4A inputs require ffmpeg to be installed on your machine.",
+        )
 
-    should_transcribe = st.button("Transcribe Voice", type="primary")
-    cached_transcript = ""
-    if audio_digest and st.session_state.last_audio_digest == audio_digest:
-        cached_transcript = st.session_state.last_transcript
+    source_audio = voice_input if voice_input is not None else audio_file
 
-    if cached_transcript:
-        transcript = cached_transcript
-        st.success("Loaded cached transcription.")
-        st.write("Recognized text")
-        st.write(transcript)
-    elif should_transcribe and audio_bytes:
-        try:
-            selected_language = {
-                "Auto": "auto",
-                "English": "en",
-                "Bangla": "bn",
-            }[voice_language]
-            model_name = "tiny" if selected_language in {"auto", "bn"} else "tiny.en"
-            with st.spinner("Transcribing voice..."):
-                transcript = transcribe_audio(
-                    audio_bytes,
-                    audio_name=audio_name,
-                    model_name=model_name,
-                    language=selected_language,
-                )
+    if source_audio is not None:
+        audio_bytes, audio_name = _audio_payload(source_audio)
+        audio_digest = hashlib.sha1(audio_bytes).hexdigest() if audio_bytes else ""
 
-            st.session_state.last_audio_digest = audio_digest
-            st.session_state.last_transcript = transcript
-            st.session_state.last_error = ""
-            should_save_exchange = True
+        st.audio(audio_bytes)
+        st.caption("Voice is ready. Click Transcribe Voice to process it once.")
 
-            if transcript:
-                st.success("Audio transcribed successfully.")
-                st.write("Recognized text")
-                st.write(transcript)
-            else:
-                st.warning("The audio file was processed, but no text was returned.")
-        except Exception as exc:
-            st.session_state.last_error = str(exc)
-            st.error(f"Audio transcription failed: {exc}")
-    elif st.session_state.last_error and audio_digest == st.session_state.last_audio_digest:
-        st.error(f"Audio transcription failed: {st.session_state.last_error}")
-    elif voice_language == "Bangla":
-        st.caption("Bangla voice input is enabled. Use a Bangla audio file or speech input for best results.")
+        should_transcribe = st.button("Transcribe Voice", type="primary")
+        cached_transcript = ""
+        if audio_digest and st.session_state.last_audio_digest == audio_digest:
+            cached_transcript = st.session_state.last_transcript
+
+        if cached_transcript:
+            transcript = cached_transcript
+            st.success("Loaded cached transcription.")
+            st.write("Recognized text")
+            st.write(transcript)
+        elif should_transcribe and audio_bytes:
+            try:
+                selected_language = {
+                    "Auto": "auto",
+                    "English": "en",
+                    "Bangla": "bn",
+                }[voice_language]
+                model_name = "tiny" if selected_language in {"auto", "bn"} else "tiny.en"
+                with st.spinner("Transcribing voice..."):
+                    transcript = transcribe_audio(
+                        audio_bytes,
+                        audio_name=audio_name,
+                        model_name=model_name,
+                        language=selected_language,
+                    )
+
+                st.session_state.last_audio_digest = audio_digest
+                st.session_state.last_transcript = transcript
+                st.session_state.last_error = ""
+                should_save_exchange = True
+
+                if transcript:
+                    st.success("Audio transcribed successfully.")
+                    st.write("Recognized text")
+                    st.write(transcript)
+                else:
+                    st.warning("The audio file was processed, but no text was returned.")
+            except Exception as exc:
+                st.session_state.last_error = str(exc)
+                st.error(f"Audio transcription failed: {exc}")
+        elif st.session_state.last_error and audio_digest == st.session_state.last_audio_digest:
+            st.error(f"Audio transcription failed: {st.session_state.last_error}")
+        elif voice_language == "Bangla":
+            st.caption("Bangla voice input is enabled. Use a Bangla audio file or speech input for best results.")
+    else:
+        st.info("Record your voice or upload an audio file to begin.")
 
 if transcript.strip() and should_save_exchange:
     with st.spinner("Searching the knowledge base..."):
@@ -225,5 +262,3 @@ if transcript.strip() and should_save_exchange:
         with st.expander("Sources", expanded=False):
             for source in sources:
                 st.write(source)
-elif not source_audio:
-    st.info("Record your voice or upload an audio file to begin.")
