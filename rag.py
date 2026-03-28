@@ -13,6 +13,48 @@ from pathlib import Path
 INDEX_DIR = Path(__file__).resolve().parent / "faiss_index"
 PICKLE_PATH = INDEX_DIR / "index.pkl"
 
+_STOPWORDS = {
+    "a",
+    "an",
+    "and",
+    "are",
+    "be",
+    "can",
+    "do",
+    "does",
+    "for",
+    "from",
+    "how",
+    "in",
+    "is",
+    "it",
+    "of",
+    "on",
+    "or",
+    "that",
+    "the",
+    "this",
+    "to",
+    "what",
+    "when",
+    "where",
+    "which",
+    "who",
+    "why",
+    "with",
+}
+
+_DEFINITION_WORDS = {
+    "architecture",
+    "approach",
+    "concept",
+    "framework",
+    "method",
+    "paradigm",
+    "technique",
+    "technology",
+}
+
 
 def _install_pickle_stubs() -> None:
     """Install lightweight stub classes so the legacy FAISS pickle can load."""
@@ -107,6 +149,31 @@ def _tokenize(text: str) -> list[str]:
     return re.findall(r"[a-z0-9]+", text.lower())
 
 
+def _content_terms(text: str) -> list[str]:
+    return [token for token in _tokenize(text) if token not in _STOPWORDS and len(token) > 1]
+
+
+def _is_definition_question(question: str) -> bool:
+    lowered = question.strip().lower()
+    return lowered.startswith(("what is ", "what are ", "define ", "tell me about ", "what does "))
+
+
+def _extract_subject_terms(question: str) -> list[str]:
+    lowered = question.strip().lower()
+    patterns = [
+        r"^(?:what is|what are|define|tell me about)\s+(.*?)[\?\.!\s]*$",
+        r"^what does\s+(.*?)\s+mean[\?\.!\s]*$",
+    ]
+    for pattern in patterns:
+        match = re.match(pattern, lowered)
+        if match:
+            subject = match.group(1)
+            terms = [token for token in _tokenize(subject) if token not in _STOPWORDS]
+            if terms:
+                return terms
+    return [token for token in _content_terms(question) if token not in _STOPWORDS]
+
+
 def _sentence_split(text: str) -> list[str]:
     chunks = re.split(r"(?<=[.!?])\s+", text.strip())
     return [chunk.strip() for chunk in chunks if chunk.strip()]
@@ -162,7 +229,7 @@ def _score_document(question_terms: Counter, content: str) -> float:
     if not content:
         return 0.0
 
-    doc_terms = Counter(_tokenize(content))
+    doc_terms = Counter(_content_terms(content))
     cosine = _cosine_similarity(question_terms, doc_terms)
 
     # Reward exact phrase overlap with the question so short documents still rank well.
@@ -176,8 +243,10 @@ def _score_document(question_terms: Counter, content: str) -> float:
 
 
 def _summarize_context(question: str, passages: list[str]) -> str:
-    no_answer = "I don’t know based on provided data"
-    question_terms = set(_tokenize(question))
+    no_answer = "I don\u2019t know based on provided data"
+    question_terms = Counter(_content_terms(question))
+    subject_terms = _extract_subject_terms(question)
+    definition_question = _is_definition_question(question)
     if not passages:
         return no_answer
 
@@ -185,12 +254,26 @@ def _summarize_context(question: str, passages: list[str]) -> str:
     for passage in passages:
         passage = _clean_passage_text(passage)
         for sentence in _sentence_split(passage):
-            tokens = Counter(_tokenize(sentence))
+            tokens = Counter(_content_terms(sentence))
             if not tokens:
                 continue
-            if len(tokens) < 6:
+            if len(tokens) < 5:
                 continue
-            score = _cosine_similarity(Counter(question_terms), tokens)
+
+            sentence_lower = sentence.lower()
+            score = _cosine_similarity(question_terms, tokens)
+            if subject_terms and any(term in sentence_lower for term in subject_terms):
+                score += 0.12
+
+            if definition_question:
+                subject_pattern = r"(?:%s)" % "|".join(re.escape(term) for term in subject_terms) if subject_terms else r".+"
+                if re.search(rf"\b{subject_pattern}\b.{{0,40}}\b(is|are|means|refers to|stands for|describes)\b", sentence_lower):
+                    score += 0.28
+                if re.search(rf"\b(is|are|means|refers to|stands for|describes)\b.{{0,40}}\b{subject_pattern}\b", sentence_lower):
+                    score += 0.18
+                if re.search(r"\b(" + "|".join(re.escape(word) for word in _DEFINITION_WORDS) + r")\b", sentence_lower):
+                    score += 0.08
+
             if score > 0:
                 scored_sentences.append((score, sentence))
 
@@ -203,23 +286,31 @@ def _summarize_context(question: str, passages: list[str]) -> str:
             continue
         seen.add(normalized)
         selected.append(sentence)
-        if len(selected) == 3:
+        if len(selected) == 2:
             break
 
     if not selected:
         return no_answer
 
+    if definition_question:
+        for _, sentence in scored_sentences:
+            sentence_lower = sentence.lower()
+            subject_hit = not subject_terms or any(term in sentence_lower for term in subject_terms)
+            definitional_hit = bool(
+                re.search(r"\b(" + "|".join(re.escape(word) for word in _DEFINITION_WORDS) + r")\b", sentence_lower)
+            )
+            if subject_hit and definitional_hit:
+                return sentence.strip()
+        return no_answer
+
     if len(selected) == 1:
         return selected[0]
 
-    if len(selected) == 2:
-        return f"{selected[0]} {selected[1]}"
-
-    return f"{selected[0]} {selected[1]} {selected[2]}"
+    return f"{selected[0]} {selected[1]}"
 
 
 def ask(question: str, top_k: int = 3) -> tuple[str, list[str]]:
-    no_answer = "I don’t know based on provided data"
+    no_answer = "I don\u2019t know based on provided data"
     docs = _load_documents()
     question = question.strip()
     if not question:
@@ -227,7 +318,10 @@ def ask(question: str, top_k: int = 3) -> tuple[str, list[str]]:
     if not docs:
         return no_answer, []
 
-    question_terms = Counter(_tokenize(question))
+    question_terms = Counter(_content_terms(question))
+    if not question_terms and not _is_definition_question(question):
+        return no_answer, []
+
     ranked: list[tuple[float, dict]] = []
 
     for doc in docs:
@@ -237,11 +331,21 @@ def ask(question: str, top_k: int = 3) -> tuple[str, list[str]]:
             ranked.append((score, doc))
 
     ranked.sort(key=lambda item: item[0], reverse=True)
-    selected = ranked[:top_k]
+    if _is_definition_question(question):
+        selected = ranked
+    else:
+        selected = ranked[:top_k]
     if not selected:
+        return no_answer, []
+
+    best_score = selected[0][0]
+    if best_score < 0.12 and not _is_definition_question(question):
         return no_answer, []
 
     passages = [doc.get("page_content", "") for _, doc in selected]
     answer = _summarize_context(question, passages)
+    if answer == no_answer:
+        return no_answer, []
+
     sources = [_format_source(doc.get("metadata", {}), score) for score, doc in selected]
     return answer, sources
