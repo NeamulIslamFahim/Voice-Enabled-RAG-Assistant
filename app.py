@@ -246,6 +246,7 @@ with st.sidebar:
         st.session_state.store = load_store()
         st.session_state.active_chat_id = new_chat_id
         st.session_state.last_audio_digest = ""
+        st.session_state.last_audio_source = ""
         st.session_state.last_transcript = ""
         st.session_state.last_error = ""
         st.rerun()
@@ -277,6 +278,7 @@ with st.sidebar:
             st.session_state.store = load_store()
             st.session_state.active_chat_id = new_active_chat_id
             st.session_state.last_audio_digest = ""
+            st.session_state.last_audio_source = ""
             st.session_state.last_transcript = ""
             st.session_state.last_error = ""
             st.rerun()
@@ -320,6 +322,8 @@ transcript = ""
 
 if "last_audio_digest" not in st.session_state:
     st.session_state.last_audio_digest = ""
+if "last_audio_source" not in st.session_state:
+    st.session_state.last_audio_source = ""
 if "last_transcript" not in st.session_state:
     st.session_state.last_transcript = ""
 if "last_error" not in st.session_state:
@@ -360,12 +364,15 @@ with footer:
     if source_audio is not None:
         audio_bytes, audio_name = _audio_payload(source_audio)
         audio_digest = hashlib.sha1(audio_bytes).hexdigest() if audio_bytes else ""
+        audio_source_type = "voice_input" if voice_input is not None else "file_upload"
+        current_audio_source = f"{audio_source_type}:{audio_name}:{voice_language}"
+        same_audio_source = st.session_state.last_audio_source == current_audio_source
 
         st.audio(audio_bytes)
         st.caption("Audio received. Transcribing now, then the assistant will speak the answer.")
 
         cached_transcript = ""
-        if audio_digest and st.session_state.last_audio_digest == audio_digest:
+        if same_audio_source and audio_digest and st.session_state.last_audio_digest == audio_digest:
             cached_transcript = st.session_state.last_transcript
 
         if cached_transcript:
@@ -391,6 +398,7 @@ with footer:
 
                 if transcript:
                     st.session_state.last_audio_digest = audio_digest
+                    st.session_state.last_audio_source = current_audio_source
                     st.session_state.last_transcript = transcript
                     st.session_state.last_error = ""
                     st.success("Transcription complete")
@@ -435,6 +443,7 @@ with footer:
                     _render_sources(sources)
                 else:
                     st.session_state.last_audio_digest = audio_digest
+                    st.session_state.last_audio_source = current_audio_source
                     st.session_state.last_transcript = ""
                     st.warning("The audio file was processed, but no text was returned.")
             except Exception as exc:
