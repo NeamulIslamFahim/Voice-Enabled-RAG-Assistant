@@ -170,6 +170,7 @@ def transcribe_audio(
     audio_name: str = "voice.wav",
     model_name: str = DEFAULT_MODEL_NAME,
     language: str = "en",
+    task: str = "transcribe",
 ) -> str:
     """Transcribe audio locally with Whisper."""
 
@@ -185,6 +186,7 @@ def transcribe_audio(
                 segments, _info = model.transcribe(
                     str(local_path),
                     language=language_arg,
+                    task=task,
                     beam_size=5,
                     vad_filter=True,
                     condition_on_previous_text=False,
@@ -200,6 +202,7 @@ def transcribe_audio(
             clean_audio,
             fp16=False,
             language=language_arg,
+            task=task,
             temperature=0,
             best_of=3,
             beam_size=5,

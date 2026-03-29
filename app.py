@@ -289,10 +289,10 @@ with st.sidebar:
         "Choose language",
         options=["Auto", "English", "Bangla"],
         index=0,
-        help="Auto works for mixed input. Pick English or Bangla if you know the language upfront.",
+        help="Auto detects the spoken language and translates to English when needed. Pick English or Bangla if you know the language upfront.",
     )
     if voice_language == "Bangla":
-        st.info("Bangla transcription is enabled. Spoken output depends on the voices installed on Windows.")
+        st.info("Bangla audio will be translated to English before answering. Spoken output depends on the voices installed on Windows.")
     else:
         st.caption("Tip: shorter WAV clips usually transcribe fastest.")
 
@@ -408,12 +408,14 @@ with footer:
                     "Bangla": "bn",
                 }[voice_language]
                 model_name = "small" if selected_language in {"auto", "bn"} else "small.en"
+                transcribe_task = "translate" if selected_language in {"auto", "bn"} else "transcribe"
                 with st.spinner("Transcribing voice..."):
                     transcript = transcribe_audio(
                         audio_bytes,
                         audio_name=audio_name,
                         model_name=model_name,
                         language=selected_language,
+                        task=transcribe_task,
                     )
 
                 if transcript:
@@ -474,6 +476,6 @@ with footer:
         elif st.session_state.last_error and audio_digest == st.session_state.last_audio_digest:
             st.error(f"Audio transcription failed: {st.session_state.last_error}")
         elif voice_language == "Bangla":
-            st.caption("Bangla voice input is enabled. Use a Bangla audio file or speech input for best results.")
+            st.caption("Bangla voice input is enabled. The assistant will translate Bangla speech to English before answering.")
     else:
         st.info("Record your voice or upload an audio file to begin.")
