@@ -5,7 +5,7 @@ import hashlib
 import streamlit as st
 
 from chat_store import append_exchange, create_chat, delete_chat, load_store, rename_chat
-from rag import ask, get_document_count
+from rag import ask
 from whisper_stt import transcribe_audio
 from tts_speech import text_to_speech_bytes
 
@@ -229,18 +229,6 @@ if "active_chat_id" not in st.session_state or st.session_state.active_chat_id n
 with st.sidebar:
     st.markdown("### Workspace")
     st.caption("Your chats, voice settings, and document context live here.")
-
-    st.markdown(
-        f"""
-        <div class="info-card">
-            <div class="info-label">Knowledge base</div>
-            <div class="info-value">{get_document_count()} indexed chunks</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    st.write("")
     if st.button("New Chat", type="primary", use_container_width=True):
         new_chat_id = create_chat(store, "New Chat")
         st.session_state.store = load_store()
