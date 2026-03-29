@@ -359,12 +359,12 @@ with footer:
             help="Whisper runs locally. WAV is fastest. MP3 and M4A need ffmpeg.",
         )
 
-    source_audio = voice_input if voice_input is not None else audio_file
+    source_audio = audio_file if audio_file is not None else voice_input
 
     if source_audio is not None:
         audio_bytes, audio_name = _audio_payload(source_audio)
         audio_digest = hashlib.sha1(audio_bytes).hexdigest() if audio_bytes else ""
-        audio_source_type = "voice_input" if voice_input is not None else "file_upload"
+        audio_source_type = "file_upload" if audio_file is not None else "voice_input"
         current_audio_source = f"{audio_source_type}:{audio_name}:{voice_language}"
         same_audio_source = st.session_state.last_audio_source == current_audio_source
 
