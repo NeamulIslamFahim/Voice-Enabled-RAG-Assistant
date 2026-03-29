@@ -9,7 +9,7 @@ from pathlib import Path
 
 import numpy as np
 
-DEFAULT_MODEL_NAME = "tiny.en"
+DEFAULT_MODEL_NAME = "small"
 DEFAULT_CPU_THREADS = 4
 
 # Hugging Face warns on Windows when symlinks are unavailable in the cache.
@@ -78,8 +78,8 @@ def transcribe_audio(
                 segments, _info = model.transcribe(
                     str(local_path),
                     language=language_arg,
-                    beam_size=1,
-                    vad_filter=False,
+                    beam_size=3,
+                    vad_filter=True,
                     condition_on_previous_text=False,
                 )
                 return " ".join(segment.text.strip() for segment in segments if segment.text).strip()
@@ -96,8 +96,8 @@ def transcribe_audio(
                 fp16=False,
                 language=language_arg,
                 temperature=0,
-                best_of=1,
-                beam_size=1,
+                best_of=3,
+                beam_size=3,
                 condition_on_previous_text=False,
                 verbose=False,
             )
@@ -109,8 +109,8 @@ def transcribe_audio(
                     fp16=False,
                     language=language_arg,
                     temperature=0,
-                    best_of=1,
-                    beam_size=1,
+                    best_of=3,
+                    beam_size=3,
                     condition_on_previous_text=False,
                     verbose=False,
                 )

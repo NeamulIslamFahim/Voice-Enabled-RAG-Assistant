@@ -168,6 +168,8 @@ if "last_error" not in st.session_state:
     st.session_state.last_error = ""
 if "last_answer_audio" not in st.session_state:
     st.session_state.last_answer_audio = {}
+if "qa_cache" not in st.session_state:
+    st.session_state.qa_cache = {}
 
 footer = st.container()
 with footer:
@@ -191,7 +193,7 @@ with footer:
         audio_digest = hashlib.sha1(audio_bytes).hexdigest() if audio_bytes else ""
 
         st.audio(audio_bytes)
-        st.caption("Voice is ready. It will be transcribed automatically.")
+        st.caption("Voice is ready. It will be transcribed automatically. WAV files are usually the fastest.")
 
         cached_transcript = ""
         if audio_digest and st.session_state.last_audio_digest == audio_digest:
@@ -209,7 +211,7 @@ with footer:
                     "English": "en",
                     "Bangla": "bn",
                 }[voice_language]
-                model_name = "tiny" if selected_language in {"auto", "bn"} else "tiny.en"
+                model_name = "small" if selected_language in {"auto", "bn"} else "small.en"
                 with st.spinner("Transcribing voice..."):
                     transcript = transcribe_audio(
                         audio_bytes,
@@ -225,8 +227,14 @@ with footer:
                     st.success("Audio transcribed successfully.")
                     st.write("Recognized text")
                     st.write(transcript)
-                    with st.spinner("Searching the knowledge base..."):
-                        answer, sources = ask(transcript.strip())
+
+                    cache_key = transcript.strip()
+                    if cache_key in st.session_state.qa_cache:
+                        answer, sources = st.session_state.qa_cache[cache_key]
+                    else:
+                        with st.spinner("Searching the knowledge base..."):
+                            answer, sources = ask(cache_key)
+                        st.session_state.qa_cache[cache_key] = (answer, sources)
 
                     if answer not in st.session_state.last_answer_audio:
                         try:
@@ -239,7 +247,7 @@ with footer:
                     append_exchange(
                         st.session_state.store,
                         st.session_state.active_chat_id,
-                        transcript.strip(),
+                        cache_key,
                         answer,
                         sources,
                     )
