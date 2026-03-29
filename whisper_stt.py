@@ -8,7 +8,7 @@ import wave
 from functools import lru_cache
 from pathlib import Path
 
-import numpy as np
+import numpy as np  # type: ignore[reportMissingImports]
 
 DEFAULT_MODEL_NAME = "small"
 DEFAULT_CPU_THREADS = 4
@@ -65,10 +65,13 @@ def _trim_silence(samples: np.ndarray, threshold: float = SILENCE_THRESHOLD, pad
     if not np.any(mask):
         return samples
 
-    indices = np.where(mask)[0]
+    indices = np.flatnonzero(mask).tolist()
+    if not indices:
+        return samples
+
     pad = int(DEFAULT_SAMPLE_RATE * padding_seconds)
-    start = max(0, int(indices[0]) - pad)
-    end = min(samples.size, int(indices[-1]) + pad + 1)
+    start = max(0, indices[0] - pad)
+    end = min(samples.size, indices[-1] + pad + 1)
     return samples[start:end]
 
 

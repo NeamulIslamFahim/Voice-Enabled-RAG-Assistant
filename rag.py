@@ -94,10 +94,19 @@ def _install_pickle_stubs() -> None:
         def __setstate__(self, state):
             self.__dict__.update(state)
 
-    sys.modules["langchain_core.documents"].Document = _Document
-    sys.modules["langchain_core.documents.base"].Document = _Document
-    sys.modules["langchain_community.docstore.in_memory"].InMemoryDocstore = _InMemoryDocstore
-    sys.modules["langchain_community.vectorstores.faiss"].FAISS = _FAISS
+    setattr(sys.modules["langchain_core.documents"], "Document", _Document)
+    setattr(sys.modules["langchain_core.documents.base"], "Document", _Document)
+    setattr(sys.modules["langchain_community.docstore.in_memory"], "InMemoryDocstore", _InMemoryDocstore)
+    setattr(sys.modules["langchain_community.vectorstores.faiss"], "FAISS", _FAISS)
+
+
+def _parse_page_number(value: object) -> int | None:
+    if value is None:
+        return None
+    try:
+        return int(str(value).strip())
+    except Exception:
+        return None
 
 
 def _unwrap_state(obj):
@@ -266,10 +275,7 @@ def _score_document(question: str, question_terms: Counter, content: str, metada
             phrase_bonus += 0.12
         if metadata and isinstance(metadata, dict):
             page_value = metadata.get("page_label", metadata.get("page"))
-            try:
-                page_num = int(page_value)
-            except Exception:
-                page_num = None
+            page_num = _parse_page_number(page_value)
             if page_num is not None and page_num <= 5:
                 phrase_bonus += 0.10
 
