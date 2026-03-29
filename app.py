@@ -256,6 +256,7 @@ with footer:
                     st.chat_message("assistant").write(answer)
                     audio_output = st.session_state.last_answer_audio.get(answer, b"")
                     if audio_output:
+                        st.caption("Speaking the answer now.")
                         st.audio(audio_output, format="audio/wav")
                     if sources:
                         with st.expander("Sources", expanded=False):

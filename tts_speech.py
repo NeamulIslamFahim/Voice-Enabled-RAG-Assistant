@@ -41,7 +41,16 @@ def text_to_speech_bytes(text: str) -> bytes:
     engine = _get_engine()
     temp_wav = cache_path.with_suffix(".wav")
     engine.save_to_file(text, str(temp_wav))
-    engine.runAndWait()
+    try:
+        engine.runAndWait()
+    finally:
+        try:
+            engine.stop()
+        except Exception:
+            pass
+
+    if not temp_wav.exists():
+        raise RuntimeError("Text-to-speech did not produce an audio file.")
 
     data = temp_wav.read_bytes()
     cache_path.write_bytes(data)
