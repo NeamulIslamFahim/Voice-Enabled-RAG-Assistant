@@ -440,5 +440,8 @@ def ask(question: str, top_k: int = 3) -> tuple[str, list[str]]:
     if answer == no_answer:
         return no_answer, []
 
-    sources = [_format_source(doc.get("metadata", {}), score) for score, doc in selected]
+    sources = [
+        _format_source(doc.get("metadata", {}), score)
+        for score, doc in sorted(selected, key=lambda item: item[0], reverse=True)
+    ]
     return answer, sources

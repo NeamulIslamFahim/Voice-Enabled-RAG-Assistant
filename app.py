@@ -40,6 +40,18 @@ def _chat_label(chat):
     return f"{title}  ({updated_at})" if updated_at else title
 
 
+def _render_sources(sources: list[str]) -> None:
+    if not sources:
+        return
+
+    top_source = sources[0]
+    st.markdown(f"**Top source**: {top_source}")
+    if len(sources) > 1:
+        with st.expander("More sources", expanded=False):
+            for source in sources[1:]:
+                st.write(source)
+
+
 st.set_page_config(
     page_title="Voice-Enabled RAG Assistant",
     layout="wide",
@@ -292,10 +304,7 @@ with chat_col:
                 st.write(message["content"])
                 if message["role"] == "assistant":
                     sources = message.get("sources", [])
-                    if sources:
-                        with st.expander("Sources", expanded=False):
-                            for source in sources:
-                                st.write(source)
+                    _render_sources(sources)
     else:
         st.markdown(
             """
@@ -423,10 +432,7 @@ with footer:
                     if audio_output:
                         st.caption("Speaking the answer now")
                         st.audio(audio_output, format="audio/wav")
-                    if sources:
-                        with st.expander("Sources", expanded=False):
-                            for source in sources:
-                                st.write(source)
+                    _render_sources(sources)
                 else:
                     st.session_state.last_audio_digest = audio_digest
                     st.session_state.last_transcript = ""
