@@ -128,12 +128,7 @@ def _is_meta_question(question: str) -> bool:
 
 def _meta_answer() -> str:
     return (
-        "**Answer:** I know about RAG, vector databases, embeddings, retrieval, similarity search, and general assistant tasks.\n"
-        "**Details:**\n"
-        "- I answer from the indexed documents in this project.\n"
-        "- I also use general language understanding to explain ideas in a conversational way.\n"
-        "- I can explain how the assistant uses retrieval and context to generate answers.\n"
-        "- If something is outside the indexed data, I will reply with `I don't know based on provided data`."
+        "**Answer:** I know about RAG, vector databases, embeddings, retrieval, similarity search, and general assistant tasks."
     )
 
 
