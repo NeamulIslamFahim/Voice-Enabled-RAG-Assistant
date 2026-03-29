@@ -332,6 +332,17 @@ if "last_answer_audio" not in st.session_state:
     st.session_state.last_answer_audio = {}
 if "qa_cache" not in st.session_state:
     st.session_state.qa_cache = {}
+if "input_widget_nonce" not in st.session_state:
+    st.session_state.input_widget_nonce = 0
+
+
+def _reset_voice_inputs() -> None:
+    st.session_state.input_widget_nonce += 1
+    st.session_state.audio_input_mode = "Record voice"
+    st.session_state.last_audio_digest = ""
+    st.session_state.last_audio_source = ""
+    st.session_state.last_transcript = ""
+    st.session_state.last_error = ""
 
 footer = st.container()
 with footer:
@@ -349,22 +360,31 @@ with footer:
         unsafe_allow_html=True,
     )
 
-    voice_col, file_col = st.columns([1.2, 1])
-    with voice_col:
-        voice_input = st.audio_input("Record your voice")
-    with file_col:
-        audio_file = st.file_uploader(
+    if "audio_input_mode" not in st.session_state:
+        st.session_state.audio_input_mode = "Record voice"
+
+    input_mode = st.radio(
+        "Input source",
+        options=["Record voice", "Upload audio"],
+        index=0 if st.session_state.audio_input_mode == "Record voice" else 1,
+        horizontal=True,
+        key="audio_input_mode",
+    )
+
+    if input_mode == "Record voice":
+        source_audio = st.audio_input("Record your voice", key=f"voice_input_{st.session_state.input_widget_nonce}")
+    else:
+        source_audio = st.file_uploader(
             "Upload audio",
             type=["wav", "mp3", "m4a", "ogg", "flac"],
             help="Whisper runs locally. WAV is fastest. MP3 and M4A need ffmpeg.",
+            key=f"audio_file_{st.session_state.input_widget_nonce}",
         )
-
-    source_audio = audio_file if audio_file is not None else voice_input
 
     if source_audio is not None:
         audio_bytes, audio_name = _audio_payload(source_audio)
         audio_digest = hashlib.sha1(audio_bytes).hexdigest() if audio_bytes else ""
-        audio_source_type = "file_upload" if audio_file is not None else "voice_input"
+        audio_source_type = "voice_input" if input_mode == "Record voice" else "file_upload"
         current_audio_source = f"{audio_source_type}:{audio_name}:{voice_language}"
         same_audio_source = st.session_state.last_audio_source == current_audio_source
 
@@ -441,6 +461,8 @@ with footer:
                         st.caption("Speaking the answer now")
                         st.audio(audio_output, format="audio/wav")
                     _render_sources(sources)
+                    _reset_voice_inputs()
+                    st.rerun()
                 else:
                     st.session_state.last_audio_digest = audio_digest
                     st.session_state.last_audio_source = current_audio_source
