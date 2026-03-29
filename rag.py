@@ -299,6 +299,36 @@ def _simplify_answer_sentence(sentence: str, question: str) -> str:
     return text
 
 
+def _clean_response_line(text: str) -> str:
+    cleaned = re.sub(r"\s+", " ", text).strip()
+    cleaned = re.sub(r"^\d+(?:\.\d+)*\s+", "", cleaned)
+    cleaned = re.sub(r"^[•\-–]\s*", "", cleaned)
+    return cleaned
+
+
+def _structured_response(question: str, sentences: list[str]) -> str:
+    no_answer = "I don\u2019t know based on provided data"
+    if not sentences:
+        return no_answer
+
+    primary = _clean_response_line(sentences[0])
+    supporting = [_clean_response_line(sentence) for sentence in sentences[1:] if _clean_response_line(sentence)]
+    supporting = supporting[:3]
+
+    if _is_definition_question(question):
+        parts = [f"**Answer:** {primary}"]
+        if supporting:
+            parts.append("**Details:**")
+            parts.extend(f"- {item}" for item in supporting)
+        return "\n".join(parts).strip()
+
+    parts = [f"**Answer:** {primary}"]
+    if supporting:
+        parts.append("**More context:**")
+        parts.extend(f"- {item}" for item in supporting)
+    return "\n".join(parts).strip()
+
+
 def _definition_sentence_priority(sentence: str) -> float:
     lowered = sentence.lower()
     priority = 0.0
@@ -393,13 +423,7 @@ def _summarize_context(question: str, passages: list[str]) -> str:
     if not selected:
         return no_answer
 
-    if definition_question:
-        return " ".join(selected[:3]).strip()
-
-    if len(selected) == 1:
-        return selected[0]
-
-    return " ".join(selected[:3]).strip()
+    return _structured_response(question, selected)
 
 
 def ask(question: str, top_k: int = 3) -> tuple[str, list[str]]:
