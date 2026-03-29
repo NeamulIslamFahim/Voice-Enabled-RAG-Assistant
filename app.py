@@ -334,11 +334,13 @@ if "qa_cache" not in st.session_state:
     st.session_state.qa_cache = {}
 if "input_widget_nonce" not in st.session_state:
     st.session_state.input_widget_nonce = 0
+if "audio_input_mode_pref" not in st.session_state:
+    st.session_state.audio_input_mode_pref = "Record voice"
 
 
 def _reset_voice_inputs() -> None:
     st.session_state.input_widget_nonce += 1
-    st.session_state.audio_input_mode = "Record voice"
+    st.session_state.audio_input_mode_pref = "Record voice"
     st.session_state.last_audio_digest = ""
     st.session_state.last_audio_source = ""
     st.session_state.last_transcript = ""
@@ -360,15 +362,13 @@ with footer:
         unsafe_allow_html=True,
     )
 
-    if "audio_input_mode" not in st.session_state:
-        st.session_state.audio_input_mode = "Record voice"
-
+    mode_key = f"audio_input_mode_{st.session_state.input_widget_nonce}"
     input_mode = st.radio(
         "Input source",
         options=["Record voice", "Upload audio"],
-        index=0 if st.session_state.audio_input_mode == "Record voice" else 1,
+        index=0 if st.session_state.audio_input_mode_pref == "Record voice" else 1,
         horizontal=True,
-        key="audio_input_mode",
+        key=mode_key,
     )
 
     if input_mode == "Record voice":
