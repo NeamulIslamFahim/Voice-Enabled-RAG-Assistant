@@ -128,11 +128,11 @@ def _is_meta_question(question: str) -> bool:
 
 def _meta_answer() -> str:
     return (
-        "**Answer:** I’m a document-grounded assistant. I answer by searching the indexed knowledge base in this project and using the retrieved context to form the response.\n"
+        "**Answer:** I'm a document-grounded assistant. I answer by searching the indexed knowledge base in this project and using the retrieved context to form the response.\n"
         "**Details:**\n"
         "- I know the material that has been indexed from the uploaded documents.\n"
-        "- I’m designed to answer questions about that content, such as RAG, vector databases, embeddings, retrieval, similarity search, and related concepts.\n"
-        "- If something is outside the indexed data, I will reply with `I don’t know based on provided data`."
+        "- I'm designed to answer questions about that content, such as RAG, vector databases, embeddings, retrieval, similarity search, and related concepts.\n"
+        "- If something is outside the indexed data, I will reply with `I don't know based on provided data`."
     )
 
 

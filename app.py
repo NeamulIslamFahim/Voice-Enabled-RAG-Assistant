@@ -319,6 +319,9 @@ if "last_answer_audio" not in st.session_state:
     st.session_state.last_answer_audio = {}
 if "qa_cache" not in st.session_state:
     st.session_state.qa_cache = {}
+if st.session_state.get("qa_cache_version") != 2:
+    st.session_state.qa_cache = {}
+    st.session_state.qa_cache_version = 2
 if "input_widget_nonce" not in st.session_state:
     st.session_state.input_widget_nonce = 0
 if "audio_input_mode_pref" not in st.session_state:
@@ -412,12 +415,13 @@ with footer:
                         st.markdown("**Recognized text**")
                         st.write(transcript)
 
-                    cache_key = transcript.strip()
+                    question_text = transcript.strip()
+                    cache_key = f"v2::{question_text}"
                     if cache_key in st.session_state.qa_cache:
                         answer, sources = st.session_state.qa_cache[cache_key]
                     else:
                         with st.spinner("Searching the knowledge base..."):
-                            answer, sources = ask(cache_key)
+                            answer, sources = ask(question_text)
                         st.session_state.qa_cache[cache_key] = (answer, sources)
 
                     if answer not in st.session_state.last_answer_audio:
@@ -431,7 +435,7 @@ with footer:
                     append_exchange(
                         st.session_state.store,
                         st.session_state.active_chat_id,
-                        cache_key,
+                        question_text,
                         answer,
                         sources,
                     )
