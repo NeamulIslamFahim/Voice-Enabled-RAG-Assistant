@@ -188,6 +188,17 @@ def _sentence_split(text: str) -> list[str]:
     return [chunk.strip() for chunk in chunks if chunk.strip()]
 
 
+def _is_fragment(sentence: str) -> bool:
+    text = sentence.strip()
+    if not text:
+        return True
+    if len(text) < 35 and not re.search(r"[.!?]$", text):
+        return True
+    if text.lower().endswith(("using", "and", "or", "the", "a", "an", "to", "for", "of", "in")):
+        return True
+    return False
+
+
 def _clean_passage_text(text: str) -> str:
     if not text:
         return ""
@@ -303,6 +314,15 @@ def _clean_response_line(text: str) -> str:
     cleaned = re.sub(r"\s+", " ", text).strip()
     cleaned = re.sub(r"^\d+(?:\.\d+)*\s+", "", cleaned)
     cleaned = re.sub(r"^[•\-–]\s*", "", cleaned)
+    cleaned = re.sub(r"\busing\s+$", "", cleaned).strip()
+    cleaned = re.sub(r"\busing\b$", "", cleaned).strip()
+    return cleaned
+
+
+def _normalize_response_line(text: str) -> str:
+    cleaned = _clean_response_line(text).lower()
+    cleaned = re.sub(r"[^\w\s]", "", cleaned)
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()
     return cleaned
 
 
@@ -311,9 +331,31 @@ def _structured_response(question: str, sentences: list[str]) -> str:
     if not sentences:
         return no_answer
 
-    primary = _clean_response_line(sentences[0])
-    supporting = [_clean_response_line(sentence) for sentence in sentences[1:] if _clean_response_line(sentence)]
-    supporting = supporting[:3]
+    unique_sentences: list[str] = []
+    seen = set()
+    for sentence in sentences:
+        normalized = _normalize_response_line(sentence)
+        if not normalized or normalized in seen:
+            continue
+        if _is_fragment(sentence):
+            continue
+        seen.add(normalized)
+        unique_sentences.append(_clean_response_line(sentence))
+
+    if not unique_sentences:
+        return no_answer
+
+    primary = unique_sentences[0]
+    supporting = unique_sentences[1:4]
+    deduped_supporting: list[str] = []
+    seen_support = set()
+    for item in supporting:
+        normalized = _normalize_response_line(item)
+        if normalized in seen_support:
+            continue
+        seen_support.add(normalized)
+        deduped_supporting.append(item)
+    supporting = deduped_supporting
 
     if _is_definition_question(question):
         parts = [f"**Answer:** {primary}"]
@@ -398,10 +440,15 @@ def _summarize_context(question: str, passages: list[str]) -> str:
             ) or any(marker in normalized for marker in _INTRO_SECTION_MARKERS)
             if not (subject_hit and definitional_hit):
                 continue
+            if _is_fragment(sentence):
+                continue
             definition_candidates.append((_definition_sentence_priority(sentence), _, sentence))
             continue
         seen.add(normalized)
-        selected.append(_simplify_answer_sentence(sentence, question))
+        simplified = _simplify_answer_sentence(sentence, question)
+        simplified_norm = _normalize_response_line(simplified)
+        if simplified_norm and simplified_norm not in {_normalize_response_line(item) for item in selected}:
+            selected.append(simplified)
         limit = 4 if definition_question else 3
         if len(selected) >= limit:
             break
@@ -416,7 +463,10 @@ def _summarize_context(question: str, passages: list[str]) -> str:
                 if normalized in seen:
                     continue
                 seen.add(normalized)
-                selected.append(_simplify_answer_sentence(sentence, question))
+                simplified = _simplify_answer_sentence(sentence, question)
+                simplified_norm = _normalize_response_line(simplified)
+                if simplified_norm and simplified_norm not in {_normalize_response_line(item) for item in selected}:
+                    selected.append(simplified)
                 if len(selected) >= 3:
                     break
 
