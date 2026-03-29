@@ -407,8 +407,8 @@ with footer:
                     "English": "en",
                     "Bangla": "bn",
                 }[voice_language]
-                model_name = "small" if selected_language in {"auto", "bn"} else "small.en"
-                transcribe_task = "translate" if selected_language in {"auto", "bn"} else "transcribe"
+                model_name = "small"
+                transcribe_task = "auto" if selected_language == "auto" else ("translate" if selected_language == "bn" else "transcribe")
                 with st.spinner("Transcribing voice..."):
                     transcript = transcribe_audio(
                         audio_bytes,

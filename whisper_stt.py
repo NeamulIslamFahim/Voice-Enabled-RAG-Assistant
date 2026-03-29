@@ -165,6 +165,65 @@ def _load_model(model_name: str):
         return ("openai_whisper", whisper.load_model(model_name))
 
 
+def _normalize_language(language: str | None) -> str | None:
+    if language is None:
+        return None
+    normalized = str(language).strip().lower()
+    if normalized in {"", "auto", "detect", "default"}:
+        return None
+    return normalized
+
+
+def _run_transcription(
+    backend: str,
+    model,
+    clean_audio: np.ndarray,
+    *,
+    language: str | None,
+    task: str,
+) -> tuple[str, str | None]:
+    language_arg = _normalize_language(language)
+    task_arg = (task or "transcribe").strip().lower()
+    if task_arg not in {"transcribe", "translate"}:
+        task_arg = "transcribe"
+
+    if backend == "faster_whisper":
+        local_path = _write_wav_samples(clean_audio)
+        try:
+            segments, info = model.transcribe(
+                str(local_path),
+                language=language_arg,
+                task=task_arg,
+                beam_size=5,
+                vad_filter=True,
+                condition_on_previous_text=False,
+            )
+            text = " ".join(segment.text.strip() for segment in segments if segment.text).strip()
+            detected_language = getattr(info, "language", None)
+            return text, detected_language
+        finally:
+            try:
+                os.unlink(local_path)
+            except OSError:
+                pass
+
+    result = model.transcribe(
+        clean_audio,
+        fp16=False,
+        language=language_arg,
+        task=task_arg,
+        temperature=0,
+        best_of=3,
+        beam_size=5,
+        condition_on_previous_text=False,
+        no_speech_threshold=0.35,
+        verbose=False,
+    )
+    text = (result.get("text") or "").strip()
+    detected_language = result.get("language")
+    return text, detected_language
+
+
 def transcribe_audio(
     audio_bytes: bytes,
     audio_name: str = "voice.wav",
@@ -175,42 +234,43 @@ def transcribe_audio(
     """Transcribe audio locally with Whisper."""
 
     backend, model = _load_model(model_name)
-    language_arg = None if language == "auto" else language
+    language_arg = _normalize_language(language)
+    task_arg = (task or "transcribe").strip().lower()
+    if task_arg not in {"transcribe", "translate", "auto"}:
+        task_arg = "transcribe"
 
     try:
         clean_audio = _prepare_speech_audio(audio_bytes, audio_name)
 
-        if backend == "faster_whisper":
-            local_path = _write_wav_samples(clean_audio)
-            try:
-                segments, _info = model.transcribe(
-                    str(local_path),
-                    language=language_arg,
-                    task=task,
-                    beam_size=5,
-                    vad_filter=True,
-                    condition_on_previous_text=False,
+        if task_arg == "auto":
+            detected_text, detected_language = _run_transcription(
+                backend,
+                model,
+                clean_audio,
+                language=None,
+                task="transcribe",
+            )
+            if not detected_text:
+                return ""
+            if detected_language and detected_language.lower() != "en":
+                translated_text, _ = _run_transcription(
+                    backend,
+                    model,
+                    clean_audio,
+                    language=detected_language,
+                    task="translate",
                 )
-                return " ".join(segment.text.strip() for segment in segments if segment.text).strip()
-            finally:
-                try:
-                    os.unlink(local_path)
-                except OSError:
-                    pass
+                return translated_text or detected_text
+            return detected_text
 
-        result = model.transcribe(
+        text, _detected_language = _run_transcription(
+            backend,
+            model,
             clean_audio,
-            fp16=False,
             language=language_arg,
-            task=task,
-            temperature=0,
-            best_of=3,
-            beam_size=5,
-            condition_on_previous_text=False,
-            no_speech_threshold=0.35,
-            verbose=False,
+            task=task_arg,
         )
-        return (result.get("text") or "").strip()
+        return text
     except FileNotFoundError as exc:
         raise RuntimeError(
             "Whisper needs ffmpeg to decode this audio format. Install ffmpeg or upload a WAV file."
