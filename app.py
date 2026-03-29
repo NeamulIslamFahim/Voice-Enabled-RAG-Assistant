@@ -283,19 +283,6 @@ with st.sidebar:
             st.session_state.last_error = ""
             st.rerun()
 
-    st.divider()
-    st.markdown("### Voice Mode")
-    voice_language = st.selectbox(
-        "Choose language",
-        options=["Auto", "English", "Bangla"],
-        index=0,
-        help="Auto detects the spoken language and translates to English when needed. Pick English or Bangla if you know the language upfront.",
-    )
-    if voice_language == "Bangla":
-        st.info("Bangla audio will be translated to English before answering. Spoken output depends on the voices installed on Windows.")
-    else:
-        st.caption("Tip: shorter WAV clips usually transcribe fastest.")
-
 current_chat = st.session_state.store["chats"][st.session_state.active_chat_id]
 
 chat_col = st.container()
@@ -361,6 +348,17 @@ with footer:
         """,
         unsafe_allow_html=True,
     )
+
+    voice_language = st.selectbox(
+        "Choose language",
+        options=["Auto", "English", "Bangla"],
+        index=0,
+        help="Auto detects the spoken language and translates to English when needed. Pick English or Bangla if you know the language upfront.",
+    )
+    if voice_language == "Bangla":
+        st.info("Bangla audio will be translated to English before answering. Spoken output depends on the voices installed on Windows.")
+    else:
+        st.caption("Tip: shorter WAV clips usually transcribe fastest.")
 
     mode_key = f"audio_input_mode_{st.session_state.input_widget_nonce}"
     input_mode = st.radio(
