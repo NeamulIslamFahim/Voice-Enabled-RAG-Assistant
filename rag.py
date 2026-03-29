@@ -51,9 +51,18 @@ _DEFINITION_WORDS = {
     "framework",
     "method",
     "paradigm",
+    "principle",
     "technique",
     "technology",
 }
+
+_INTRO_SECTION_MARKERS = (
+    "introduction",
+    "overview",
+    "core principle",
+    "architecture overview",
+    "why rag",
+)
 
 
 def _install_pickle_stubs() -> None:
@@ -155,7 +164,7 @@ def _content_terms(text: str) -> list[str]:
 
 def _is_definition_question(question: str) -> bool:
     lowered = question.strip().lower()
-    return lowered.startswith(("what is ", "what are ", "define ", "tell me about ", "what does "))
+    return lowered.startswith(("what is ", "what are ", "define ", "tell me about ", "what does ", "explain "))
 
 
 def _extract_subject_terms(question: str) -> list[str]:
@@ -225,7 +234,7 @@ def _format_source(metadata: dict, score: float) -> str:
     return f"{source}{location} | relevance: {score:.3f}"
 
 
-def _score_document(question_terms: Counter, content: str) -> float:
+def _score_document(question: str, question_terms: Counter, content: str, metadata: dict | None = None) -> float:
     if not content:
         return 0.0
 
@@ -239,7 +248,55 @@ def _score_document(question_terms: Counter, content: str) -> float:
         if token in lowered:
             phrase_bonus += 0.02
 
+    if _is_definition_question(question):
+        if any(marker in lowered for marker in _INTRO_SECTION_MARKERS):
+            phrase_bonus += 0.16
+        if re.search(r"\b(introduction|overview|definition|core principle)\b", lowered):
+            phrase_bonus += 0.12
+        if metadata and isinstance(metadata, dict):
+            page_value = metadata.get("page_label", metadata.get("page"))
+            try:
+                page_num = int(page_value)
+            except Exception:
+                page_num = None
+            if page_num is not None and page_num <= 5:
+                phrase_bonus += 0.10
+
     return cosine + min(0.2, phrase_bonus)
+
+
+def _simplify_answer_sentence(sentence: str, question: str) -> str:
+    text = re.sub(r"\s+", " ", sentence).strip()
+    if not text:
+        return text
+
+    lowered = text.lower()
+    if _is_definition_question(question):
+        if "core principle of rag" in lowered:
+            match = re.search(r"the core principle of rag is[:\s]+(.+)$", text, flags=re.IGNORECASE)
+            if match:
+                clause = match.group(1).strip()
+                clause = re.split(r"\.\s+", clause)[0].strip()
+                return f"The core principle of RAG is: {clause}"
+
+        match = re.search(r"^(.*?\b(?:is|are)\b)\s+not\s+merely\s+[^;:.]+[;:]\s*it\s+(?:is|are)\s+(.+)$", text, flags=re.IGNORECASE)
+        if match:
+            return f"{match.group(1).strip()} {match.group(2).strip()}"
+
+        match = re.search(r"^(.{1,80}?\b(?:is|are)\b\s+)(.+)$", text, flags=re.IGNORECASE)
+        if match:
+            leading = match.group(1).strip()
+            body = match.group(2).strip()
+            body = re.split(r"[;:]\s+", body)[0]
+            return f"{leading} {body}".strip()
+
+    if ";" in lowered:
+        text = text.split(";", 1)[0].strip()
+    if ":" in text and _is_definition_question(question):
+        head, tail = text.split(":", 1)
+        if len(head) < 90:
+            return f"{head.strip()}: {tail.strip()}".strip()
+    return text
 
 
 def _summarize_context(question: str, passages: list[str]) -> str:
@@ -278,20 +335,6 @@ def _summarize_context(question: str, passages: list[str]) -> str:
                 scored_sentences.append((score, sentence))
 
     scored_sentences.sort(key=lambda item: item[0], reverse=True)
-    selected: list[str] = []
-    seen = set()
-    for _, sentence in scored_sentences:
-        normalized = sentence.lower()
-        if normalized in seen:
-            continue
-        seen.add(normalized)
-        selected.append(sentence)
-        if len(selected) == 2:
-            break
-
-    if not selected:
-        return no_answer
-
     if definition_question:
         for _, sentence in scored_sentences:
             sentence_lower = sentence.lower()
@@ -300,7 +343,23 @@ def _summarize_context(question: str, passages: list[str]) -> str:
                 re.search(r"\b(" + "|".join(re.escape(word) for word in _DEFINITION_WORDS) + r")\b", sentence_lower)
             )
             if subject_hit and definitional_hit:
-                return sentence.strip()
+                simplified = _simplify_answer_sentence(sentence, question)
+                if simplified:
+                    return simplified
+        return no_answer
+
+    selected: list[str] = []
+    seen = set()
+    for _, sentence in scored_sentences:
+        normalized = sentence.lower()
+        if normalized in seen:
+            continue
+        seen.add(normalized)
+        selected.append(_simplify_answer_sentence(sentence, question))
+        if len(selected) == 2:
+            break
+
+    if not selected:
         return no_answer
 
     if len(selected) == 1:
@@ -326,7 +385,7 @@ def ask(question: str, top_k: int = 3) -> tuple[str, list[str]]:
 
     for doc in docs:
         content = doc.get("page_content", "")
-        score = _score_document(question_terms, content)
+        score = _score_document(question, question_terms, content, doc.get("metadata", {}))
         if score > 0:
             ranked.append((score, doc))
 
