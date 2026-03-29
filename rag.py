@@ -299,6 +299,24 @@ def _simplify_answer_sentence(sentence: str, question: str) -> str:
     return text
 
 
+def _definition_sentence_priority(sentence: str) -> float:
+    lowered = sentence.lower()
+    priority = 0.0
+    if "core principle of rag" in lowered:
+        priority += 4.0
+    if "retrieval-augmented generation (rag) is" in lowered:
+        priority += 3.0
+    if "rag is an architectural philosophy" in lowered:
+        priority += 3.0
+    if "retrieve first, then generate" in lowered:
+        priority += 2.5
+    if lowered.startswith("retrieval-augmented generation") or lowered.startswith("rag "):
+        priority += 1.5
+    if "introduction" in lowered or "overview" in lowered:
+        priority += 0.5
+    return priority
+
+
 def _summarize_context(question: str, passages: list[str]) -> str:
     no_answer = "I don\u2019t know based on provided data"
     question_terms = Counter(_content_terms(question))
@@ -335,37 +353,53 @@ def _summarize_context(question: str, passages: list[str]) -> str:
                 scored_sentences.append((score, sentence))
 
     scored_sentences.sort(key=lambda item: item[0], reverse=True)
-    if definition_question:
-        for _, sentence in scored_sentences:
-            sentence_lower = sentence.lower()
-            subject_hit = not subject_terms or any(term in sentence_lower for term in subject_terms)
-            definitional_hit = bool(
-                re.search(r"\b(" + "|".join(re.escape(word) for word in _DEFINITION_WORDS) + r")\b", sentence_lower)
-            )
-            if subject_hit and definitional_hit:
-                simplified = _simplify_answer_sentence(sentence, question)
-                if simplified:
-                    return simplified
-        return no_answer
-
     selected: list[str] = []
     seen = set()
+    definition_candidates: list[tuple[float, float, str]] = []
     for _, sentence in scored_sentences:
         normalized = sentence.lower()
         if normalized in seen:
             continue
+        if definition_question:
+            subject_hit = not subject_terms or any(term in normalized for term in subject_terms)
+            subject_pattern = r"(?:%s)" % "|".join(re.escape(term) for term in subject_terms) if subject_terms else r".+"
+            definitional_hit = bool(
+                re.search(rf"\b{subject_pattern}\b.{{0,40}}\b(is|are|means|refers to|stands for|describes)\b", normalized)
+            ) or any(marker in normalized for marker in _INTRO_SECTION_MARKERS)
+            if not (subject_hit and definitional_hit):
+                continue
+            definition_candidates.append((_definition_sentence_priority(sentence), _, sentence))
+            continue
         seen.add(normalized)
         selected.append(_simplify_answer_sentence(sentence, question))
-        if len(selected) == 2:
+        limit = 4 if definition_question else 3
+        if len(selected) >= limit:
             break
+
+    if not selected:
+        if definition_question and definition_candidates:
+            definition_candidates.sort(key=lambda item: (item[0], item[1]), reverse=True)
+            selected = []
+            seen = set()
+            for _, _, sentence in definition_candidates:
+                normalized = sentence.lower()
+                if normalized in seen:
+                    continue
+                seen.add(normalized)
+                selected.append(_simplify_answer_sentence(sentence, question))
+                if len(selected) >= 3:
+                    break
 
     if not selected:
         return no_answer
 
+    if definition_question:
+        return " ".join(selected[:3]).strip()
+
     if len(selected) == 1:
         return selected[0]
 
-    return f"{selected[0]} {selected[1]}"
+    return " ".join(selected[:3]).strip()
 
 
 def ask(question: str, top_k: int = 3) -> tuple[str, list[str]]:
