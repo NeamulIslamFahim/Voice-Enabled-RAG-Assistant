@@ -349,16 +349,7 @@ with footer:
         unsafe_allow_html=True,
     )
 
-    voice_language = st.selectbox(
-        "Choose language",
-        options=["Auto", "English", "Bangla"],
-        index=0,
-        help="Auto detects the spoken language and translates to English when needed. Pick English or Bangla if you know the language upfront.",
-    )
-    if voice_language == "Bangla":
-        st.info("Bangla audio will be translated to English before answering. Spoken output depends on the voices installed on Windows.")
-    else:
-        st.caption("Tip: shorter WAV clips usually transcribe fastest.")
+    st.caption("Auto detects English or Bangla speech and translates Bangla to English before answering.")
 
     mode_key = f"audio_input_mode_{st.session_state.input_widget_nonce}"
     input_mode = st.radio(
@@ -383,7 +374,7 @@ with footer:
         audio_bytes, audio_name = _audio_payload(source_audio)
         audio_digest = hashlib.sha1(audio_bytes).hexdigest() if audio_bytes else ""
         audio_source_type = "voice_input" if input_mode == "Record voice" else "file_upload"
-        current_audio_source = f"{audio_source_type}:{audio_name}:{voice_language}"
+        current_audio_source = f"{audio_source_type}:{audio_name}:auto"
         same_audio_source = st.session_state.last_audio_source == current_audio_source
 
         st.audio(audio_bytes)
@@ -400,20 +391,14 @@ with footer:
             st.write(transcript)
         elif audio_bytes:
             try:
-                selected_language = {
-                    "Auto": "auto",
-                    "English": "en",
-                    "Bangla": "bn",
-                }[voice_language]
                 model_name = "small"
-                transcribe_task = "auto" if selected_language == "auto" else ("translate" if selected_language == "bn" else "transcribe")
                 with st.spinner("Transcribing voice..."):
                     transcript = transcribe_audio(
                         audio_bytes,
                         audio_name=audio_name,
                         model_name=model_name,
-                        language=selected_language,
-                        task=transcribe_task,
+                        language="auto",
+                        task="auto",
                     )
 
                 if transcript:
@@ -473,7 +458,5 @@ with footer:
                 st.error(f"Audio transcription failed: {exc}")
         elif st.session_state.last_error and audio_digest == st.session_state.last_audio_digest:
             st.error(f"Audio transcription failed: {st.session_state.last_error}")
-        elif voice_language == "Bangla":
-            st.caption("Bangla voice input is enabled. The assistant will translate Bangla speech to English before answering.")
     else:
         st.info("Record your voice or upload an audio file to begin.")
