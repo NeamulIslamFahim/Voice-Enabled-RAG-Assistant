@@ -326,21 +326,46 @@ def _normalize_response_line(text: str) -> str:
     return cleaned
 
 
+def _merge_response_sentence(existing: str, candidate: str) -> str:
+    existing_clean = _clean_response_line(existing)
+    candidate_clean = _clean_response_line(candidate)
+    existing_norm = _normalize_response_line(existing_clean)
+    candidate_norm = _normalize_response_line(candidate_clean)
+
+    if not existing_norm:
+        return candidate_clean
+    if not candidate_norm:
+        return existing_clean
+    if existing_norm == candidate_norm:
+        return candidate_clean if len(candidate_clean) > len(existing_clean) else existing_clean
+    if existing_norm.startswith(candidate_norm) or candidate_norm.startswith(existing_norm):
+        return candidate_clean if len(candidate_clean) > len(existing_clean) else existing_clean
+    return existing_clean
+
+
 def _structured_response(question: str, sentences: list[str]) -> str:
     no_answer = "I don\u2019t know based on provided data"
     if not sentences:
         return no_answer
 
     unique_sentences: list[str] = []
-    seen = set()
+    seen: dict[str, str] = {}
     for sentence in sentences:
         normalized = _normalize_response_line(sentence)
         if not normalized or normalized in seen:
             continue
         if _is_fragment(sentence):
             continue
-        seen.add(normalized)
-        unique_sentences.append(_clean_response_line(sentence))
+        near_duplicate = None
+        for existing_norm, existing_sentence in seen.items():
+            if existing_norm.startswith(normalized) or normalized.startswith(existing_norm):
+                near_duplicate = existing_norm
+                seen[existing_norm] = _merge_response_sentence(existing_sentence, sentence)
+                break
+        if near_duplicate is not None:
+            continue
+        seen[normalized] = _clean_response_line(sentence)
+        unique_sentences.append(seen[normalized])
 
     if not unique_sentences:
         return no_answer
@@ -426,7 +451,8 @@ def _summarize_context(question: str, passages: list[str]) -> str:
 
     scored_sentences.sort(key=lambda item: item[0], reverse=True)
     selected: list[str] = []
-    seen = set()
+    seen: set[str] = set()
+    selected_norms: set[str] = set()
     definition_candidates: list[tuple[float, float, str]] = []
     for _, sentence in scored_sentences:
         normalized = sentence.lower()
@@ -444,11 +470,13 @@ def _summarize_context(question: str, passages: list[str]) -> str:
                 continue
             definition_candidates.append((_definition_sentence_priority(sentence), _, sentence))
             continue
+
         seen.add(normalized)
         simplified = _simplify_answer_sentence(sentence, question)
         simplified_norm = _normalize_response_line(simplified)
-        if simplified_norm and simplified_norm not in {_normalize_response_line(item) for item in selected}:
+        if simplified_norm and simplified_norm not in selected_norms:
             selected.append(simplified)
+            selected_norms.add(simplified_norm)
         limit = 4 if definition_question else 3
         if len(selected) >= limit:
             break
@@ -458,6 +486,7 @@ def _summarize_context(question: str, passages: list[str]) -> str:
             definition_candidates.sort(key=lambda item: (item[0], item[1]), reverse=True)
             selected = []
             seen = set()
+            selected_norms = set()
             for _, _, sentence in definition_candidates:
                 normalized = sentence.lower()
                 if normalized in seen:
@@ -465,8 +494,9 @@ def _summarize_context(question: str, passages: list[str]) -> str:
                 seen.add(normalized)
                 simplified = _simplify_answer_sentence(sentence, question)
                 simplified_norm = _normalize_response_line(simplified)
-                if simplified_norm and simplified_norm not in {_normalize_response_line(item) for item in selected}:
+                if simplified_norm and simplified_norm not in selected_norms:
                     selected.append(simplified)
+                    selected_norms.add(simplified_norm)
                 if len(selected) >= 3:
                     break
 
