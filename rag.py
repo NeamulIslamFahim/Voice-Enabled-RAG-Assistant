@@ -64,6 +64,18 @@ _INTRO_SECTION_MARKERS = (
     "why rag",
 )
 
+_META_QUESTION_MARKERS = (
+    "what do you do",
+    "what can you do",
+    "what do you know",
+    "what are you trained on",
+    "what are you capable of",
+    "tell me about yourself",
+    "who are you",
+    "how do you work",
+    "how do you help",
+)
+
 
 def _install_pickle_stubs() -> None:
     """Install lightweight stub classes so the legacy FAISS pickle can load."""
@@ -107,6 +119,21 @@ def _parse_page_number(value: object) -> int | None:
         return int(str(value).strip())
     except Exception:
         return None
+
+
+def _is_meta_question(question: str) -> bool:
+    lowered = question.strip().lower()
+    return any(marker in lowered for marker in _META_QUESTION_MARKERS)
+
+
+def _meta_answer() -> str:
+    return (
+        "**Answer:** I’m a document-grounded assistant. I answer by searching the indexed knowledge base in this project and using the retrieved context to form the response.\n"
+        "**Details:**\n"
+        "- I know the material that has been indexed from the uploaded documents.\n"
+        "- I’m designed to answer questions about that content, such as RAG, vector databases, embeddings, retrieval, similarity search, and related concepts.\n"
+        "- If something is outside the indexed data, I will reply with `I don’t know based on provided data`."
+    )
 
 
 def _unwrap_state(obj):
@@ -518,6 +545,8 @@ def ask(question: str, top_k: int = 3) -> tuple[str, list[str]]:
     question = question.strip()
     if not question:
         return "Please enter a question.", []
+    if _is_meta_question(question):
+        return _meta_answer(), []
     if not docs:
         return no_answer, []
 
