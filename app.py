@@ -42,24 +42,145 @@ def _chat_label(chat):
 
 st.set_page_config(
     page_title="Voice-Enabled RAG Assistant",
-    layout="centered",
+    layout="wide",
 )
 
 st.markdown(
     """
     <style>
+        :root {
+            --page-bg: linear-gradient(180deg, #f7f4ef 0%, #f3efe8 46%, #ece6db 100%);
+            --card-bg: rgba(255, 255, 255, 0.72);
+            --card-border: rgba(94, 74, 47, 0.14);
+            --ink: #1f2937;
+            --muted: #6b7280;
+            --accent: #8a5a2b;
+            --accent-soft: rgba(138, 90, 43, 0.12);
+        }
+
+        .stApp {
+            background: var(--page-bg);
+        }
+
+        section[data-testid="stSidebar"] {
+            background: linear-gradient(180deg, #f5efe5 0%, #efe7da 100%);
+            border-right: 1px solid rgba(94, 74, 47, 0.12);
+        }
+
+        section.main > div {
+            max-width: 1180px;
+            padding-top: 1.2rem;
+            padding-bottom: 21rem;
+        }
+
+        .hero-wrap {
+            display: grid;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+
+        .eyebrow {
+            font-size: 0.82rem;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: var(--accent);
+            font-weight: 700;
+        }
+
+        .hero-card, .info-card, .voice-shell {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 22px;
+            box-shadow: 0 18px 40px rgba(31, 41, 55, 0.08);
+            backdrop-filter: blur(10px);
+        }
+
+        .hero-card {
+            padding: 1.3rem 1.4rem;
+        }
+
+        .hero-title {
+            font-size: 2rem;
+            font-weight: 800;
+            color: var(--ink);
+            margin: 0;
+            line-height: 1.05;
+        }
+
+        .hero-subtitle {
+            margin: 0.45rem 0 0;
+            color: var(--muted);
+            font-size: 1rem;
+            line-height: 1.5;
+        }
+
+        .stat-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            padding: 0.5rem 0.8rem;
+            border-radius: 999px;
+            background: var(--accent-soft);
+            color: var(--ink);
+            font-size: 0.88rem;
+            font-weight: 600;
+            margin-right: 0.5rem;
+            margin-top: 0.5rem;
+        }
+
+        .info-card {
+            padding: 1rem 1.05rem;
+        }
+
+        .info-label {
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--muted);
+            margin-bottom: 0.35rem;
+        }
+
+        .info-value {
+            color: var(--ink);
+            font-weight: 700;
+            font-size: 1.05rem;
+        }
+
+        .voice-shell {
+            padding: 1rem 1rem 0.9rem;
+        }
+
+        .voice-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .voice-title {
+            margin: 0;
+            font-size: 1.05rem;
+            font-weight: 800;
+            color: var(--ink);
+        }
+
+        .voice-hint {
+            margin: 0.2rem 0 0;
+            color: var(--muted);
+            font-size: 0.88rem;
+        }
+
         section.main div[data-testid="stVerticalBlock"] > div:has(div[data-testid="stAudioInput"]) {
             position: fixed !important;
             bottom: 0 !important;
             left: 50% !important;
             transform: translateX(-50%);
-            width: min(740px, calc(100vw - 2rem)) !important;
+            width: min(1180px, calc(100vw - 1.5rem)) !important;
             z-index: 999 !important;
-            background: var(--background-color);
-            border-top: 1px solid rgba(49, 51, 63, 0.12);
-            box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.08);
-            padding: 1rem 1rem 0.9rem;
-            border-radius: 16px 16px 0 0;
+            background: transparent;
+            border-top: none;
+            box-shadow: none;
         }
 
         section.main div[data-testid="stVerticalBlock"] > div:last-child {
@@ -67,20 +188,30 @@ st.markdown(
             bottom: 0 !important;
             left: 50% !important;
             transform: translateX(-50%);
-            width: min(740px, calc(100vw - 2rem)) !important;
+            width: min(1180px, calc(100vw - 1.5rem)) !important;
             z-index: 999 !important;
         }
 
         section.main > div {
-            padding-bottom: 20rem;
+            padding-bottom: 22rem;
         }
     </style>
     """,
     unsafe_allow_html=True,
 )
 
-st.title("Voice Enabled RAG Assistant")
-st.caption("Speak your question or upload a voice file.")
+st.markdown(
+    """
+    <div class="hero-wrap">
+      <div class="hero-card">
+        <div class="eyebrow">Voice RAG Workspace</div>
+        <h1 class="hero-title">Voice-Enabled RAG Assistant</h1>
+        <p class="hero-subtitle">Record a question or upload an audio clip, and get a grounded answer from the vector knowledge base with spoken output.</p>
+      </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 
 if "store" not in st.session_state:
     st.session_state.store = load_store()
@@ -96,7 +227,20 @@ if "active_chat_id" not in st.session_state or st.session_state.active_chat_id n
     st.session_state.active_chat_id = store.get("active_chat_id") or chat_ids[0]
 
 with st.sidebar:
-    st.header("Conversation History")
+    st.markdown("### Workspace")
+    st.caption("Your chats, voice settings, and document context live here.")
+
+    st.markdown(
+        f"""
+        <div class="info-card">
+            <div class="info-label">Knowledge base</div>
+            <div class="info-value">{get_document_count()} indexed chunks</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    st.write("")
     if st.button("New Chat", type="primary", use_container_width=True):
         new_chat_id = create_chat(store, "New Chat")
         st.session_state.store = load_store()
@@ -138,25 +282,42 @@ with st.sidebar:
             st.rerun()
 
     st.divider()
+    st.markdown("### Voice Mode")
     voice_language = st.selectbox(
-        "Voice language",
+        "Choose language",
         options=["Auto", "English", "Bangla"],
         index=0,
+        help="Auto works for mixed input. Pick English or Bangla if you know the language upfront.",
     )
     if voice_language == "Bangla":
-        st.caption("Bangla transcription is enabled. Audio output depends on the voices installed on Windows.")
+        st.info("Bangla transcription is enabled. Spoken output depends on the voices installed on Windows.")
+    else:
+        st.caption("Tip: shorter WAV clips usually transcribe fastest.")
 
 current_chat = st.session_state.store["chats"][st.session_state.active_chat_id]
 
-for message in current_chat.get("messages", []):
-    with st.chat_message(message["role"]):
-        st.write(message["content"])
-        if message["role"] == "assistant":
-            sources = message.get("sources", [])
-            if sources:
-                with st.expander("Sources", expanded=False):
-                    for source in sources:
-                        st.write(source)
+chat_col = st.container()
+with chat_col:
+    if current_chat.get("messages"):
+        for message in current_chat.get("messages", []):
+            with st.chat_message(message["role"]):
+                st.write(message["content"])
+                if message["role"] == "assistant":
+                    sources = message.get("sources", [])
+                    if sources:
+                        with st.expander("Sources", expanded=False):
+                            for source in sources:
+                                st.write(source)
+    else:
+        st.markdown(
+            """
+            <div class="info-card">
+                <div class="info-label">Start here</div>
+                <div class="info-value">Record a voice prompt or upload an audio file using the dock at the bottom.</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
 transcript = ""
 
@@ -173,17 +334,28 @@ if "qa_cache" not in st.session_state:
 
 footer = st.container()
 with footer:
-    st.divider()
-    st.subheader("Voice Input")
+    st.markdown(
+        """
+        <div class="voice-shell">
+          <div class="voice-header">
+            <div>
+              <p class="voice-title">Voice Dock</p>
+              <p class="voice-hint">Record or upload audio here. The assistant will transcribe and answer automatically.</p>
+            </div>
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
-    voice_col, file_col = st.columns([1, 1])
+    voice_col, file_col = st.columns([1.2, 1])
     with voice_col:
         voice_input = st.audio_input("Record your voice")
     with file_col:
         audio_file = st.file_uploader(
-            "Or upload a voice file",
+            "Upload audio",
             type=["wav", "mp3", "m4a", "ogg", "flac"],
-            help="Whisper runs locally. MP3 and M4A inputs require ffmpeg to be installed on your machine.",
+            help="Whisper runs locally. WAV is fastest. MP3 and M4A need ffmpeg.",
         )
 
     source_audio = voice_input if voice_input is not None else audio_file
@@ -193,7 +365,7 @@ with footer:
         audio_digest = hashlib.sha1(audio_bytes).hexdigest() if audio_bytes else ""
 
         st.audio(audio_bytes)
-        st.caption("Voice is ready. It will be transcribed automatically. WAV files are usually the fastest.")
+        st.caption("Audio received. Transcribing now, then the assistant will speak the answer.")
 
         cached_transcript = ""
         if audio_digest and st.session_state.last_audio_digest == audio_digest:
@@ -224,9 +396,11 @@ with footer:
                     st.session_state.last_audio_digest = audio_digest
                     st.session_state.last_transcript = transcript
                     st.session_state.last_error = ""
-                    st.success("Audio transcribed successfully.")
-                    st.write("Recognized text")
-                    st.write(transcript)
+                    st.success("Transcription complete")
+                    transcript_card = st.container(border=True)
+                    with transcript_card:
+                        st.markdown("**Recognized text**")
+                        st.write(transcript)
 
                     cache_key = transcript.strip()
                     if cache_key in st.session_state.qa_cache:
@@ -253,10 +427,13 @@ with footer:
                     )
                     st.session_state.store = load_store()
 
-                    st.chat_message("assistant").write(answer)
+                    answer_card = st.container(border=True)
+                    with answer_card:
+                        st.markdown("**Assistant response**")
+                        st.write(answer)
                     audio_output = st.session_state.last_answer_audio.get(answer, b"")
                     if audio_output:
-                        st.caption("Speaking the answer now.")
+                        st.caption("Speaking the answer now")
                         st.audio(audio_output, format="audio/wav")
                     if sources:
                         with st.expander("Sources", expanded=False):
