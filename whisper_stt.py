@@ -215,7 +215,7 @@ def _run_transcription(
         fp16=False,
         language=language_arg,
         task=task_arg,
-        temperature=0,
+        temperature=0.2,
         best_of=3,
         beam_size=5,
         condition_on_previous_text=False,
