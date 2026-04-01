@@ -68,6 +68,7 @@ _META_QUESTION_MARKERS = (
     "what do you do",
     "what can you do",
     "what do you know",
+    "do you know about",
     "what are you trained on",
     "what are you capable of",
     "tell me about yourself",
@@ -129,6 +130,44 @@ def _is_meta_question(question: str) -> bool:
 def _meta_answer() -> str:
     return (
         "I can help with RAG, vector databases, embeddings, retrieval, similarity search, and general assistant tasks."
+    )
+
+
+def _is_rag_overview_question(question: str) -> bool:
+    lowered = question.strip().lower()
+    if "rag" not in lowered:
+        return False
+    return any(
+        phrase in lowered
+        for phrase in (
+            "do you know about",
+            "what is",
+            "what are",
+            "tell me about",
+            "explain",
+            "how does",
+            "how do",
+            "what is rag",
+            "tell me about rag",
+            "explain rag",
+        )
+    )
+
+
+def _rag_overview_answer() -> str:
+    return (
+        "Yes. RAG stands for Retrieval-Augmented Generation.\n\n"
+        "It is a pattern where the system first retrieves relevant information from a knowledge base "
+        "and then uses that context to generate a grounded response.\n\n"
+        "### How it works\n"
+        "- Retrieve the most relevant passages for the question.\n"
+        "- Insert that context into the prompt.\n"
+        "- Generate an answer based on the retrieved evidence.\n\n"
+        "### Why it is useful\n"
+        "- It reduces hallucinations.\n"
+        "- It helps the assistant stay grounded in source material.\n"
+        "- It works well for private or domain-specific knowledge.\n\n"
+        "If you want, I can also show you a simple RAG prompt template or the full pipeline."
     )
 
 
@@ -544,6 +583,8 @@ def ask(question: str, top_k: int = 3) -> tuple[str, list[str]]:
         return "Please enter a question.", []
     if _is_meta_question(question):
         return _meta_answer(), []
+    if _is_rag_overview_question(question):
+        return _rag_overview_answer(), []
     if not docs:
         return no_answer, []
 
