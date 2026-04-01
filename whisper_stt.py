@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import io
 import os
@@ -184,6 +184,7 @@ def _run_transcription(
     *,
     language: str | None,
     task: str,
+    temperature: float = 0.5,
 ) -> tuple[str, str | None]:
     language_arg = _normalize_language(language)
     task_arg = (task or "transcribe").strip().lower()
@@ -197,6 +198,7 @@ def _run_transcription(
                 str(local_path),
                 language=language_arg,
                 task=task_arg,
+                temperature=temperature,
                 beam_size=5,
                 vad_filter=True,
                 condition_on_previous_text=False,
@@ -215,7 +217,7 @@ def _run_transcription(
         fp16=False,
         language=language_arg,
         task=task_arg,
-        temperature=0.2,
+        temperature=temperature,
         best_of=3,
         beam_size=5,
         condition_on_previous_text=False,
@@ -225,7 +227,6 @@ def _run_transcription(
     text = (result.get("text") or "").strip()
     detected_language = result.get("language")
     return text, detected_language
-
 
 def transcribe_audio(
     audio_bytes: bytes,
@@ -252,6 +253,7 @@ def transcribe_audio(
                 clean_audio,
                 language=None,
                 task="transcribe",
+                temperature=0.5,
             )
             if not detected_text:
                 return ""
@@ -262,6 +264,7 @@ def transcribe_audio(
                     clean_audio,
                     language=detected_language,
                     task="translate",
+                    temperature=0.5,
                 )
                 return translated_text or detected_text
             return detected_text
@@ -272,9 +275,11 @@ def transcribe_audio(
             clean_audio,
             language=language_arg,
             task=task_arg,
+            temperature=0.5,
         )
         return text
     except FileNotFoundError as exc:
         raise RuntimeError(
             "Whisper needs ffmpeg to decode this audio format. Install ffmpeg or upload a WAV file."
         ) from exc
+
