@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import re
 
 import streamlit as st
 
@@ -51,6 +52,20 @@ def _render_sources(sources: list[str]) -> None:
             for source in sources[1:]:
                 st.write(source)
 
+
+
+
+def _strip_markdown_for_speech(text: str) -> str:
+    cleaned = text.strip()
+    cleaned = re.sub(r"\*\*(.*?)\*\*", r"\1", cleaned)
+    cleaned = re.sub(r"__(.*?)__", r"\1", cleaned)
+    cleaned = re.sub(r"^\s*[-*+]\s+", "", cleaned, flags=re.M)
+    cleaned = re.sub(r"^\s*#+\s*", "", cleaned, flags=re.M)
+    cleaned = re.sub(r"^\s*>\s*", "", cleaned, flags=re.M)
+    cleaned = re.sub(r"`([^`]*)`", r"\1", cleaned)
+    cleaned = re.sub(r"\[(.*?)\]\((.*?)\)", r"\1", cleaned)
+    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
+    return cleaned.strip()
 
 st.set_page_config(
     page_title="Voice-Enabled RAG Assistant",
@@ -290,7 +305,7 @@ with chat_col:
     if current_chat.get("messages"):
         for message in current_chat.get("messages", []):
             with st.chat_message(message["role"]):
-                st.write(message["content"])
+                st.markdown(message["content"])
                 if message["role"] == "assistant":
                     sources = message.get("sources", [])
                     _render_sources(sources)
@@ -391,7 +406,7 @@ with footer:
             transcript = cached_transcript
             st.success("Loaded cached transcription.")
             st.write("Recognized text")
-            st.write(transcript)
+            st.markdown(transcript)
         elif audio_bytes:
             try:
                 model_name = "small"
@@ -413,7 +428,7 @@ with footer:
                     transcript_card = st.container(border=True)
                     with transcript_card:
                         st.markdown("**Recognized text**")
-                        st.write(transcript)
+                        st.markdown(transcript)
 
                     question_text = transcript.strip()
                     cache_key = f"v3::{question_text}"
@@ -424,12 +439,13 @@ with footer:
                             answer, sources = ask(question_text)
                         st.session_state.qa_cache[cache_key] = (answer, sources)
 
-                    if answer not in st.session_state.last_answer_audio:
+                    speech_answer = _strip_markdown_for_speech(answer)
+                    if speech_answer not in st.session_state.last_answer_audio:
                         try:
                             with st.spinner("Generating audio response..."):
-                                st.session_state.last_answer_audio[answer] = text_to_speech_bytes(answer)
+                                st.session_state.last_answer_audio[speech_answer] = text_to_speech_bytes(speech_answer)
                         except Exception as exc:
-                            st.session_state.last_answer_audio[answer] = b""
+                            st.session_state.last_answer_audio[speech_answer] = b""
                             st.caption(f"Audio response unavailable: {exc}")
 
                     append_exchange(
@@ -444,8 +460,8 @@ with footer:
                     answer_card = st.container(border=True)
                     with answer_card:
                         st.markdown("**Assistant response**")
-                        st.write(answer)
-                    audio_output = st.session_state.last_answer_audio.get(answer, b"")
+                        st.markdown(answer)
+                    audio_output = st.session_state.last_answer_audio.get(speech_answer, b"")
                     if audio_output:
                         st.caption("Speaking the answer now")
                         st.audio(audio_output, format="audio/wav")
