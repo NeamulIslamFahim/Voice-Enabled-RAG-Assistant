@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import math
 import pickle
@@ -128,7 +128,7 @@ def _is_meta_question(question: str) -> bool:
 
 def _meta_answer() -> str:
     return (
-        "**Answer:** I know about RAG, vector databases, embeddings, retrieval, similarity search, and general assistant tasks."
+        "I can help with RAG, vector databases, embeddings, retrieval, similarity search, and general assistant tasks."
     )
 
 
@@ -342,7 +342,7 @@ def _simplify_answer_sentence(sentence: str, question: str) -> str:
 def _clean_response_line(text: str) -> str:
     cleaned = re.sub(r"\s+", " ", text).strip()
     cleaned = re.sub(r"^\d+(?:\.\d+)*\s+", "", cleaned)
-    cleaned = re.sub(r"^[•\-–]\s*", "", cleaned)
+    cleaned = re.sub(r"^[â€¢\-â€“]\s*", "", cleaned)
     cleaned = re.sub(r"\busing\s+$", "", cleaned).strip()
     cleaned = re.sub(r"\busing\b$", "", cleaned).strip()
     return cleaned
@@ -412,18 +412,19 @@ def _structured_response(question: str, sentences: list[str]) -> str:
     supporting = deduped_supporting
 
     if _is_definition_question(question):
-        parts = [f"**Answer:** {primary}"]
+        parts = [primary]
         if supporting:
-            parts.append("**Details:**")
+            parts.append("")
+            parts.append("### Key points")
             parts.extend(f"- {item}" for item in supporting)
         return "\n".join(parts).strip()
 
-    parts = [f"**Answer:** {primary}"]
+    parts = [primary]
     if supporting:
-        parts.append("**More context:**")
+        parts.append("")
+        parts.append("### More context")
         parts.extend(f"- {item}" for item in supporting)
     return "\n".join(parts).strip()
-
 
 def _definition_sentence_priority(sentence: str) -> float:
     lowered = sentence.lower()
@@ -580,3 +581,4 @@ def ask(question: str, top_k: int = 3) -> tuple[str, list[str]]:
         for score, doc in sorted(selected, key=lambda item: item[0], reverse=True)
     ]
     return answer, sources
+
